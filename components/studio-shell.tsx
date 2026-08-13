@@ -48,6 +48,7 @@ export function StudioShell() {
   const [selectedId, setSelectedId] = useState('headline');
   const [copilotOpen, setCopilotOpen] = useState(true);
   const [prompt, setPrompt] = useState('');
+  const [copilotBusy, setCopilotBusy] = useState(false);
   const [messages, setMessages] = useState([
     { role: 'assistant', text: 'I can work with the selected object, the whole page, or a rough annotation. Try asking me to change the layout.' },
   ]);
@@ -72,15 +73,31 @@ export function StudioShell() {
     setNodes((current) => current.map((node) => node.id === selectedId ? { ...node, ...patch } : node));
   }
 
-  function sendPrompt() {
+  async function sendPrompt() {
     const text = prompt.trim();
-    if (!text) return;
-    setMessages((current) => [
-      ...current,
-      { role: 'user', text },
-      { role: 'assistant', text: `I would apply that to ${selected ? `“${selected.text || selected.kind}”` : 'the current page'} once the Gemini action is connected.` },
-    ]);
+    if (!text || copilotBusy) return;
+    setMessages((current) => [...current, { role: 'user', text }]);
     setPrompt('');
+    setCopilotBusy(true);
+    try {
+      const response = await fetch('/api/copilot', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ prompt: text, selected, nodes }),
+      });
+      const result = await response.json() as { text?: string; error?: string };
+      setMessages((current) => [...current, {
+        role: 'assistant',
+        text: result.text || result.error || 'The Copilot could not complete that request.',
+      }]);
+    } catch {
+      setMessages((current) => [...current, {
+        role: 'assistant',
+        text: 'The Copilot is unavailable. Check the server configuration and try again.',
+      }]);
+    } finally {
+      setCopilotBusy(false);
+    }
   }
 
   return (
@@ -135,7 +152,7 @@ export function StudioShell() {
             <div className={styles.contextCard}><span className={styles.contextDot} /> Editing <strong>{selected?.text ? 'selected text' : 'current page'}</strong></div>
             {messages.map((message, index) => <div key={`${message.role}-${index}`} className={message.role === 'user' ? styles.userMessage : styles.assistantMessage}>{message.text}{message.role === 'assistant' && index > 0 ? <small><ArrowDownRight size={13} /> proposed action</small> : null}</div>)}
           </div>
-          <div className={styles.promptArea}><textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendPrompt(); } }} placeholder="Ask AI to edit the design..." /><button onClick={sendPrompt} aria-label="Send prompt"><Send size={17} /></button><div className={styles.promptHint}><span>Enter to send</span><span>Shift + Enter for a new line</span></div></div>
+          <div className={styles.promptArea}><textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void sendPrompt(); } }} placeholder={copilotBusy ? 'Gemini is thinking...' : 'Ask AI to edit the design...'} disabled={copilotBusy} /><button onClick={() => void sendPrompt()} aria-label="Send prompt" disabled={copilotBusy}><Send size={17} /></button><div className={styles.promptHint}><span>Enter to send</span><span>Shift + Enter for a new line</span></div></div>
         </aside> : <button className={styles.floatingCopilot} onClick={() => setCopilotOpen(true)}><Sparkles size={17} /> Copilot</button>}
       </section>
     </main>

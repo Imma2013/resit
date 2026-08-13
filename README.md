@@ -40,6 +40,11 @@ firebase use <firebase-project-id>
 corepack pnpm convex:dev
 ```
 
+Set `FIREBASE_PROJECT_ID` in the Convex environment as well as the public
+Firebase web configuration. Convex verifies Firebase ID tokens using the
+Firebase issuer, audience, and Google JWKS configuration in
+`convex/auth.config.ts`.
+
 Convex generates its typed `convex/_generated` files after the first successful
 deployment. The web TypeScript project intentionally excludes that generated
 directory until a deployment exists; Convex validates its own functions during
