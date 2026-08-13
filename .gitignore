@@ -11,3 +11,5 @@ firebase-debug.log
 *.log
 .DS_Store
 .vercel/
+.vercel
+.env*

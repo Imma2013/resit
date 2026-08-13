@@ -14,7 +14,14 @@ export const listAccounts = query({
 
 export const connectAccount = mutation({
   args: {
-    provider: v.union(v.literal('youtube'), v.literal('tiktok'), v.literal('facebook'), v.literal('instagram'), v.literal('x')),
+    provider: v.union(
+      v.literal('youtube'),
+      v.literal('tiktok'),
+      v.literal('facebook'),
+      v.literal('instagram'),
+      v.literal('x'),
+      v.literal('linkedin')
+    ),
     externalAccountId: v.string(),
     displayName: v.string(),
     encryptedRefreshToken: v.optional(v.string()),

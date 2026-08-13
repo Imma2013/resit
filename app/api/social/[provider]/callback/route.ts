@@ -48,6 +48,25 @@ async function exchangeToken(provider: SocialProvider, code: string, base: strin
       if (!long.access_token) throw new Error(long.error?.message || 'Meta long-lived token exchange failed');
       return { accessToken: long.access_token, refreshToken: long.access_token };
     }
+    case 'linkedin': {
+      const clientId = process.env.LINKEDIN_CLIENT_ID!;
+      const clientSecret = process.env.LINKEDIN_CLIENT_SECRET!;
+      const body = new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri('linkedin', base),
+      });
+      const response = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
+        method: 'POST',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body,
+      });
+      const data = await response.json() as { access_token?: string; refresh_token?: string; error?: string };
+      if (!data.access_token) throw new Error(data.error || 'LinkedIn token exchange failed');
+      return { accessToken: data.access_token, refreshToken: data.refresh_token };
+    }
     case 'x': {
       const body = new URLSearchParams({
         code,
@@ -65,6 +84,8 @@ async function exchangeToken(provider: SocialProvider, code: string, base: strin
       if (!data.access_token) throw new Error(data.error || 'X token exchange failed');
       return { accessToken: data.access_token, refreshToken: data.refresh_token };
     }
+    default:
+      throw new Error(`Unsupported social provider`);
   }
 }
 

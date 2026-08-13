@@ -1,11 +1,14 @@
-export type SocialProvider = 'youtube' | 'tiktok' | 'facebook' | 'instagram' | 'x';
+import type { SocialProvider } from './types';
+
+export type { SocialProvider };
 
 export const socialProviders: Array<{ id: SocialProvider; label: string }> = [
+  { id: 'instagram', label: 'Instagram' },
+  { id: 'linkedin', label: 'LinkedIn' },
+  { id: 'x', label: 'X (Twitter)' },
+  { id: 'facebook', label: 'Facebook' },
   { id: 'youtube', label: 'YouTube' },
   { id: 'tiktok', label: 'TikTok' },
-  { id: 'facebook', label: 'Facebook' },
-  { id: 'instagram', label: 'Instagram' },
-  { id: 'x', label: 'X' },
 ];
 
 export function redirectUri(provider: SocialProvider, base: string): string {
@@ -15,6 +18,13 @@ export function redirectUri(provider: SocialProvider, base: string): string {
 export function buildAuthorizeUrl(provider: SocialProvider, clientId: string, base: string): string {
   const redirect = encodeURIComponent(redirectUri(provider, base));
   switch (provider) {
+    case 'linkedin':
+      return 'https://www.linkedin.com/oauth/v2/authorization'
+        + `?client_id=${clientId}`
+        + `&redirect_uri=${redirect}`
+        + '&response_type=code'
+        + '&scope='
+        + encodeURIComponent('openid profile email w_member_social');
     case 'youtube':
       return 'https://accounts.google.com/o/oauth2/v2/auth'
         + `?client_id=${clientId}`
@@ -59,6 +69,7 @@ export function buildAuthorizeUrl(provider: SocialProvider, clientId: string, ba
 
 export function clientIdEnv(provider: SocialProvider): string {
   switch (provider) {
+    case 'linkedin': return 'LINKEDIN_CLIENT_ID';
     case 'youtube': return 'YOUTUBE_CLIENT_ID';
     case 'tiktok': return 'TIKTOK_CLIENT_KEY';
     case 'facebook':
@@ -66,3 +77,4 @@ export function clientIdEnv(provider: SocialProvider): string {
     case 'x': return 'X_CLIENT_ID';
   }
 }
+
