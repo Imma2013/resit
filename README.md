@@ -58,6 +58,14 @@ corepack pnpm typecheck
 corepack pnpm build
 ```
 
+## Deployment
+
+See [SETUP.md](SETUP.md) for the full self-hosted and Vercel deployment guide.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## License
 
 Resit is licensed under Apache-2.0. See `LICENSE`.

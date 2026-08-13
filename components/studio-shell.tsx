@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ArrowDownRight,
   CalendarDays,
@@ -139,6 +139,14 @@ export function StudioShell() {
     await signOut(firebaseAuth);
   }
 
+  function addImageFromFile(file: File) {
+    const url = URL.createObjectURL(file);
+    const id = `upload-${Date.now()}`;
+    setNodes((current) => [...current, { id, kind: 'image', x: 120, y: 130, width: 320, height: 320, src: url }]);
+    setSelectedId(id);
+    setMode('graphic');
+  }
+
   async function sendPrompt() {
     const text = prompt.trim();
     if (!text || copilotBusy) return;
@@ -213,7 +221,7 @@ export function StudioShell() {
           <RailButton icon={<Settings />} label="Settings" onClick={() => undefined} />
         </aside>
 
-        {mode === 'graphic' || mode === 'agent' ? <GraphicWorkspace nodes={nodes} selectedId={selectedId} setSelectedId={setSelectedId} selected={selected} updateSelected={updateSelected} addText={addText} addShape={addShape} imagePrompt={imagePrompt} setImagePrompt={setImagePrompt} generateImage={generateImage} imageBusy={imageBusy} /> : null}
+        {mode === 'graphic' || mode === 'agent' ? <GraphicWorkspace nodes={nodes} selectedId={selectedId} setSelectedId={setSelectedId} selected={selected} updateSelected={updateSelected} addText={addText} addShape={addShape} imagePrompt={imagePrompt} setImagePrompt={setImagePrompt} generateImage={generateImage} imageBusy={imageBusy} addImageFromFile={addImageFromFile} /> : null}
         {mode === 'video' ? <VideoWorkspace /> : null}
         {mode === 'calendar' ? <CalendarWorkspace /> : null}
         {mode === 'assets' ? <AssetsWorkspace /> : null}
@@ -236,8 +244,10 @@ function RailButton({ icon, label, active, onClick }: { icon: React.ReactNode; l
   return <button className={`${styles.railButton} ${active ? styles.railActive : ''}`} onClick={onClick}>{icon}<span>{label}</span></button>;
 }
 
-function GraphicWorkspace({ nodes, selectedId, setSelectedId, selected, updateSelected, addText, addShape, imagePrompt, setImagePrompt, generateImage, imageBusy }: { nodes: DesignNode[]; selectedId: string; setSelectedId: (id: string) => void; selected?: DesignNode; updateSelected: (patch: Partial<DesignNode>) => void; addText: () => void; addShape: () => void; imagePrompt: string; setImagePrompt: (value: string) => void; generateImage: () => void; imageBusy: boolean }) {
+function GraphicWorkspace({ nodes, selectedId, setSelectedId, selected, updateSelected, addText, addShape, imagePrompt, setImagePrompt, generateImage, imageBusy, addImageFromFile }: { nodes: DesignNode[]; selectedId: string; setSelectedId: (id: string) => void; selected?: DesignNode; updateSelected: (patch: Partial<DesignNode>) => void; addText: () => void; addShape: () => void; imagePrompt: string; setImagePrompt: (value: string) => void; generateImage: () => void; imageBusy: boolean; addImageFromFile: (file: File) => void }) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   return <div className={styles.editorArea}>
+    <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) addImageFromFile(file); event.target.value = ''; }} />
     <aside className={styles.toolPanel}>
       <div className={styles.panelHeading}><div><span className={styles.eyebrow}>GRAPHIC STUDIO</span><h2>Build a visual</h2></div><button><MoreHorizontal size={17} /></button></div>
       <div className={styles.searchBox}><span>Search templates, photos, styles</span><span>/</span></div>
@@ -247,7 +257,7 @@ function GraphicWorkspace({ nodes, selectedId, setSelectedId, selected, updateSe
       <div className={styles.panelSection}><div className={styles.sectionTitle}>Design system</div><div className={styles.brandRow}><span className={styles.brandSwatch} /><div><strong>Resit Studio</strong><small>4 colors, 3 type styles</small></div><ChevronDown size={15} /></div></div>
     </aside>
     <div className={styles.canvasStage}>
-      <div className={styles.canvasToolbar}><button className={styles.toolbarPrimary}><Sparkles size={16} /> Ask Resit</button><span className={styles.toolbarDivider} /><button onClick={addText}><Type size={15} /> Text</button><button onClick={addShape}><Square size={15} /> Shape</button><button><Upload size={15} /> Upload</button><span className={styles.toolbarDivider} /><button>Undo</button><button>Redo</button></div>
+      <div className={styles.canvasToolbar}><button className={styles.toolbarPrimary}><Sparkles size={16} /> Ask Resit</button><span className={styles.toolbarDivider} /><button onClick={addText}><Type size={15} /> Text</button><button onClick={addShape}><Square size={15} /> Shape</button><button onClick={() => fileInputRef.current?.click()}><Upload size={15} /> Upload</button><span className={styles.toolbarDivider} /><button>Undo</button><button>Redo</button></div>
       <div className={styles.artboardWrap}><div className={styles.artboard} onClick={() => setSelectedId('')}>
         {nodes.map((node) => {
           const isImage = node.kind === 'image';
