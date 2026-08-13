@@ -29,6 +29,7 @@ import type { DesignNode, StudioMode } from '@/lib/types';
 import { applyEditorActions } from '@/lib/editor-actions';
 import { firebaseAuth, googleProvider } from '@/lib/firebase';
 import { onAuthStateChanged, signInWithPopup, signOut, type User } from 'firebase/auth';
+import { CalendarWorkspace } from './calendar-workspace';
 import styles from './studio-shell.module.css';
 
 const initialNodes: DesignNode[] = [
@@ -224,7 +225,7 @@ export function StudioShell() {
         {mode === 'graphic' || mode === 'agent' ? <GraphicWorkspace nodes={nodes} selectedId={selectedId} setSelectedId={setSelectedId} selected={selected} updateSelected={updateSelected} addText={addText} addShape={addShape} imagePrompt={imagePrompt} setImagePrompt={setImagePrompt} generateImage={generateImage} imageBusy={imageBusy} addImageFromFile={addImageFromFile} /> : null}
         {mode === 'video' ? <VideoWorkspace /> : null}
         {mode === 'calendar' ? <CalendarWorkspace /> : null}
-        {mode === 'assets' ? <AssetsWorkspace /> : null}
+        {mode === 'assets' ? <AssetsWorkspace nodes={nodes} /> : null}
 
         {copilotOpen ? <aside className={styles.copilot}>
           <div className={styles.copilotHeader}><div><Sparkles size={17} /><strong>Studio AI Copilot</strong><span>Gemini Flash</span></div><button aria-label="Close copilot" onClick={() => setCopilotOpen(false)}><X size={18} /></button></div>
@@ -280,13 +281,29 @@ function VideoWorkspace() {
 
 function TimelineRow({ label, children }: { label: string; children: React.ReactNode }) { return <div className={styles.timelineRow}><span>{label}</span><div className={styles.track}>{children}</div></div>; }
 
-function CalendarWorkspace() {
-  const days = ['MON 12', 'TUE 13', 'WED 14', 'THU 15', 'FRI 16'];
-  return <div className={styles.calendarArea}><div className={styles.calendarHeader}><div><span className={styles.eyebrow}>SOCIAL SCHEDULER</span><h2>Content calendar</h2></div><div className={styles.calendarActions}><button className={styles.outlineButton}><ChevronDown size={15} /> This week</button><button className={styles.toolbarPrimary}><Plus size={16} /> New post</button></div></div><div className={styles.calendarFilters}><button className={styles.filterActive}>All channels</button><button>Drafts</button><button>Scheduled</button><button>Published</button></div><div className={styles.calendarGrid}>{days.map((day, index) => <div className={styles.dayColumn} key={day}><div className={styles.dayLabel}>{day}<span>{index + 2}</span></div><div className={styles.timeSlot}>09:00</div>{index === 0 ? <PostCard color="purple" title="Summer campaign" channels="Instagram  /  X" state="Scheduled" /> : null}{index === 2 ? <PostCard color="pink" title="New product story" channels="TikTok  /  Facebook" state="Draft" /> : null}{index === 4 ? <PostCard color="teal" title="Behind the scenes" channels="YouTube" state="Published" /> : null}<div className={styles.timeSlot}>14:00</div></div>)}</div></div>;
+function AssetsWorkspace({ nodes }: { nodes: DesignNode[] }) {
+  const images = nodes.filter((node) => node.kind === 'image');
+  const generated = images.filter((node) => node.id.startsWith('image-')).length;
+  const uploaded = images.length - generated;
+  return (
+    <div className={styles.assetsArea}>
+      <div className={styles.assetsHeader}>
+        <div><span className={styles.eyebrow}>MEDIA ASSETS</span><h2>Your creative library</h2></div>
+        <button className={styles.toolbarPrimary}><Upload size={16} /> Upload media</button>
+      </div>
+      <div className={styles.assetStats}>
+        <div><strong>{images.length}</strong><span>Canvas images</span></div>
+        <div><strong>{uploaded}</strong><span>Uploaded</span></div>
+        <div><strong>{generated}</strong><span>Generated</span></div>
+        <div><strong>{nodes.length}</strong><span>Design layers</span></div>
+      </div>
+      <div className={styles.assetGrid}>
+        {images.length ? images.map((node) => (
+          <div key={node.id} className={styles.assetImage} style={{ backgroundImage: `url(${node.src})` }}><span>{node.id.startsWith('image-') ? 'Generated' : 'Uploaded'}</span></div>
+        )) : <div className={styles.assetEmpty}><ImageIcon size={26} /><p>Generate or upload an image in the Graphic Studio to see it here.</p></div>}
+      </div>
+    </div>
+  );
 }
-
-function PostCard({ color, title, channels, state }: { color: string; title: string; channels: string; state: string }) { return <button className={`${styles.postCard} ${styles[`post${color}`]}`}><div className={styles.postThumb}><ImageIcon size={16} /></div><div><strong>{title}</strong><small>{channels}</small><span>{state}</span></div></button>; }
-
-function AssetsWorkspace() { return <div className={styles.assetsArea}><div className={styles.assetsHeader}><div><span className={styles.eyebrow}>MEDIA ASSETS</span><h2>Your creative library</h2></div><button className={styles.toolbarPrimary}><Upload size={16} /> Upload media</button></div><div className={styles.assetStats}><div><strong>24</strong><span>Images</span></div><div><strong>8</strong><span>Videos</span></div><div><strong>3</strong><span>Brand kits</span></div><div><strong>12</strong><span>Generated</span></div></div><div className={styles.assetGrid}><AssetTile tone="purple" title="Product campaign" /><AssetTile tone="teal" title="Summer textures" /><AssetTile tone="pink" title="Generated portrait" /><AssetTile tone="yellow" title="Brand references" /><AssetTile tone="blue" title="Veo storyboard" /><AssetTile tone="dark" title="Logo collection" /></div></div>; }
 
 function AssetTile({ tone, title }: { tone: string; title: string }) { return <div className={`${styles.assetTile} ${styles[`asset${tone}`]}`}><div><ImageIcon size={22} /></div><strong>{title}</strong><small>Updated just now</small></div>; }
