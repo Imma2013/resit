@@ -1,0 +1,29 @@
+:root {
+  --ink: #17171b;
+  --muted: #777681;
+  --line: #e8e6ed;
+  --panel: #ffffff;
+  --canvas: #f4f4f7;
+  --purple: #7c3aed;
+  --purple-dark: #5721bd;
+  --pink: #ee4e9b;
+  --teal: #18b8bd;
+  --blue: #3a7ce3;
+  --shadow: 0 18px 50px rgba(32, 26, 53, 0.1);
+}
+
+* { box-sizing: border-box; }
+
+html, body { min-height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+button, input, textarea, select { font: inherit; }
+button { cursor: pointer; }
+
+::selection { background: #ddd0ff; color: #301069; }
