@@ -7,6 +7,16 @@ import { firebaseAuth } from '@/lib/firebase';
 
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 
+function isAbsoluteUrl(value: string | undefined): boolean {
+  if (!value) return false;
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function useFirebaseAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -33,7 +43,7 @@ function useFirebaseAuth() {
 }
 
 export function AppProviders({ children }: Readonly<{ children: React.ReactNode }>) {
-  const client = useMemo(() => convexUrl ? new ConvexReactClient(convexUrl) : null, []);
+  const client = useMemo(() => (isAbsoluteUrl(convexUrl) && convexUrl) ? new ConvexReactClient(convexUrl) : null, []);
 
   if (!client) return children;
 
