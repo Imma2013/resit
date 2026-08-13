@@ -10,4 +10,5 @@ export type DesignNode = {
   text?: string;
   color?: string;
   rotation?: number;
+  src?: string;
 };

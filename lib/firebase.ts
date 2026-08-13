@@ -1,5 +1,5 @@
 import { getApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, type Auth } from 'firebase/auth';
 
 const config = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -15,4 +15,5 @@ const hasClientConfig = Object.values(config).every((value) => Boolean(value));
 export const firebaseApp: FirebaseApp | null = hasClientConfig
   ? (getApps().length ? getApp() : initializeApp(config))
   : null;
-export const firebaseAuth = firebaseApp && typeof window !== 'undefined' ? getAuth(firebaseApp) : null;
+export const firebaseAuth: Auth | null = firebaseApp && typeof window !== 'undefined' ? getAuth(firebaseApp) : null;
+export const googleProvider = typeof window !== 'undefined' && firebaseAuth ? new GoogleAuthProvider() : null;

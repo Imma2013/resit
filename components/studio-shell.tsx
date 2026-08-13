@@ -27,6 +27,8 @@ import {
 } from 'lucide-react';
 import type { DesignNode, StudioMode } from '@/lib/types';
 import { applyEditorActions } from '@/lib/editor-actions';
+import { firebaseAuth, googleProvider } from '@/lib/firebase';
+import { onAuthStateChanged, signInWithPopup, signOut, type User } from 'firebase/auth';
 import styles from './studio-shell.module.css';
 
 const initialNodes: DesignNode[] = [
@@ -51,11 +53,19 @@ export function StudioShell() {
   const [prompt, setPrompt] = useState('');
   const [copilotBusy, setCopilotBusy] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [imagePrompt, setImagePrompt] = useState('');
+  const [imageBusy, setImageBusy] = useState(false);
   const [messages, setMessages] = useState([
     { role: 'assistant', text: 'I can work with the selected object, the whole page, or a rough annotation. Try asking me to change the layout.' },
   ]);
 
   const selected = nodes.find((node) => node.id === selectedId);
+
+  useEffect(() => {
+    if (!firebaseAuth) return;
+    return onAuthStateChanged(firebaseAuth, setUser);
+  }, []);
 
   useEffect(() => {
     try {
@@ -91,6 +101,42 @@ export function StudioShell() {
 
   function updateSelected(patch: Partial<DesignNode>) {
     setNodes((current) => current.map((node) => node.id === selectedId ? { ...node, ...patch } : node));
+  }
+
+  async function generateImage() {
+    const text = imagePrompt.trim();
+    if (!text || imageBusy) return;
+    setImageBusy(true);
+    try {
+      const response = await fetch('/api/media/image', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ prompt: text }),
+      });
+      const result = await response.json() as { dataUrl?: string; error?: string };
+      if (!result.dataUrl) {
+        setMessages((current) => [...current, { role: 'assistant', text: result.error || 'Image generation failed.' }]);
+        return;
+      }
+      const id = `image-${Date.now()}`;
+      setNodes((current) => [...current, { id, kind: 'image', x: 120, y: 130, width: 320, height: 320, src: result.dataUrl }]);
+      setSelectedId(id);
+      setMode('graphic');
+    } catch {
+      setMessages((current) => [...current, { role: 'assistant', text: 'Image generation is unavailable. Check the server configuration.' }]);
+    } finally {
+      setImageBusy(false);
+    }
+  }
+
+  async function handleSignIn() {
+    if (!firebaseAuth || !googleProvider) return;
+    try { await signInWithPopup(firebaseAuth, googleProvider); } catch { /* user cancelled or configuration issue */ }
+  }
+
+  async function handleSignOut() {
+    if (!firebaseAuth) return;
+    await signOut(firebaseAuth);
   }
 
   async function sendPrompt() {
@@ -143,6 +189,7 @@ export function StudioShell() {
           ))}
         </nav>
         <div className={styles.topActions}>
+          {user ? <button className={styles.authChip} onClick={() => void handleSignOut()} title={`Signed in as ${user.displayName || user.email || 'Resit user'}`}>{user.displayName?.charAt(0) || user.email?.charAt(0) || 'U'}</button> : firebaseAuth ? <button className={styles.outlineButton} onClick={() => void handleSignIn()}><span className={styles.authDot} /> Sign in</button> : null}
           <button className={styles.outlineButton}><Settings size={16} /> Settings</button>
           <button className={styles.copilotButton} onClick={() => setCopilotOpen((current) => !current)}><Sparkles size={17} /> AI Copilot <span>{copilotOpen ? 'Hide' : 'Show'}</span></button>
         </div>
@@ -166,7 +213,7 @@ export function StudioShell() {
           <RailButton icon={<Settings />} label="Settings" onClick={() => undefined} />
         </aside>
 
-        {mode === 'graphic' || mode === 'agent' ? <GraphicWorkspace nodes={nodes} selectedId={selectedId} setSelectedId={setSelectedId} selected={selected} updateSelected={updateSelected} addText={addText} addShape={addShape} /> : null}
+        {mode === 'graphic' || mode === 'agent' ? <GraphicWorkspace nodes={nodes} selectedId={selectedId} setSelectedId={setSelectedId} selected={selected} updateSelected={updateSelected} addText={addText} addShape={addShape} imagePrompt={imagePrompt} setImagePrompt={setImagePrompt} generateImage={generateImage} imageBusy={imageBusy} /> : null}
         {mode === 'video' ? <VideoWorkspace /> : null}
         {mode === 'calendar' ? <CalendarWorkspace /> : null}
         {mode === 'assets' ? <AssetsWorkspace /> : null}
@@ -189,26 +236,30 @@ function RailButton({ icon, label, active, onClick }: { icon: React.ReactNode; l
   return <button className={`${styles.railButton} ${active ? styles.railActive : ''}`} onClick={onClick}>{icon}<span>{label}</span></button>;
 }
 
-function GraphicWorkspace({ nodes, selectedId, setSelectedId, selected, updateSelected, addText, addShape }: { nodes: DesignNode[]; selectedId: string; setSelectedId: (id: string) => void; selected?: DesignNode; updateSelected: (patch: Partial<DesignNode>) => void; addText: () => void; addShape: () => void }) {
+function GraphicWorkspace({ nodes, selectedId, setSelectedId, selected, updateSelected, addText, addShape, imagePrompt, setImagePrompt, generateImage, imageBusy }: { nodes: DesignNode[]; selectedId: string; setSelectedId: (id: string) => void; selected?: DesignNode; updateSelected: (patch: Partial<DesignNode>) => void; addText: () => void; addShape: () => void; imagePrompt: string; setImagePrompt: (value: string) => void; generateImage: () => void; imageBusy: boolean }) {
   return <div className={styles.editorArea}>
     <aside className={styles.toolPanel}>
       <div className={styles.panelHeading}><div><span className={styles.eyebrow}>GRAPHIC STUDIO</span><h2>Build a visual</h2></div><button><MoreHorizontal size={17} /></button></div>
       <div className={styles.searchBox}><span>Search templates, photos, styles</span><span>/</span></div>
-      <div className={styles.panelSection}><div className={styles.sectionTitle}>Quick add</div><div className={styles.quickGrid}><button onClick={addText}><Type size={19} /><span>Text</span></button><button onClick={addShape}><Square size={19} /><span>Shape</span></button><button><ImageIcon size={19} /><span>Image</span></button><button><WandSparkles size={19} /><span>AI edit</span></button></div></div>
+      <div className={styles.panelSection}><div className={styles.sectionTitle}>Quick add</div><div className={styles.quickGrid}><button onClick={addText}><Type size={19} /><span>Text</span></button><button onClick={addShape}><Square size={19} /><span>Shape</span></button><button><ImageIcon size={19} /><span>Image</span></button><button onClick={() => setSelectedId('')}><WandSparkles size={19} /><span>AI edit</span></button></div></div>
+      <div className={styles.panelSection}><div className={styles.sectionTitle}>Generate with Nano Banana</div><div className={styles.genBox}><textarea value={imagePrompt} onChange={(event) => setImagePrompt(event.target.value)} placeholder="Describe an image..." /><button onClick={() => void generateImage()} disabled={imageBusy}>{imageBusy ? 'Generating...' : 'Generate'}</button></div></div>
       <div className={styles.panelSection}><div className={styles.sectionTitle}>Templates</div><div className={styles.templateGrid}><div className={`${styles.templateTile} ${styles.templateOne}`}><b>SUMMER<br />STUDIO</b></div><div className={`${styles.templateTile} ${styles.templateTwo}`}><b>make<br />space</b></div><div className={`${styles.templateTile} ${styles.templateThree}`}><b>NEW<br />DROP</b></div><div className={`${styles.templateTile} ${styles.templateFour}`}><b>good<br />things</b></div></div></div>
       <div className={styles.panelSection}><div className={styles.sectionTitle}>Design system</div><div className={styles.brandRow}><span className={styles.brandSwatch} /><div><strong>Resit Studio</strong><small>4 colors, 3 type styles</small></div><ChevronDown size={15} /></div></div>
     </aside>
     <div className={styles.canvasStage}>
       <div className={styles.canvasToolbar}><button className={styles.toolbarPrimary}><Sparkles size={16} /> Ask Resit</button><span className={styles.toolbarDivider} /><button onClick={addText}><Type size={15} /> Text</button><button onClick={addShape}><Square size={15} /> Shape</button><button><Upload size={15} /> Upload</button><span className={styles.toolbarDivider} /><button>Undo</button><button>Redo</button></div>
       <div className={styles.artboardWrap}><div className={styles.artboard} onClick={() => setSelectedId('')}>
-        {nodes.map((node) => <button key={node.id} className={`${styles.designNode} ${node.kind === 'text' ? styles.textNode : node.kind === 'annotation' ? styles.annotationNode : styles.shapeNode} ${selectedId === node.id ? styles.nodeSelected : ''}`} style={{ left: node.x, top: node.y, width: node.width, height: node.height, background: node.kind === 'shape' ? node.color : undefined, color: node.color }} onClick={(event) => { event.stopPropagation(); setSelectedId(node.id); }}><span>{node.text}</span>{selectedId === node.id ? <i className={styles.resizeHandle} /> : null}</button>)}
+        {nodes.map((node) => {
+          const isImage = node.kind === 'image';
+          return <button key={node.id} className={`${styles.designNode} ${isImage ? styles.imageNode : node.kind === 'text' ? styles.textNode : node.kind === 'annotation' ? styles.annotationNode : styles.shapeNode} ${selectedId === node.id ? styles.nodeSelected : ''}`} style={{ left: node.x, top: node.y, width: node.width, height: node.height, background: isImage ? `url(${node.src}) center/cover no-repeat` : node.kind === 'shape' ? node.color : undefined, color: node.color }} onClick={(event) => { event.stopPropagation(); setSelectedId(node.id); }}><span>{node.text}</span>{selectedId === node.id ? <i className={styles.resizeHandle} /> : null}</button>;
+        })}
         <div className={styles.annotationArrow}><ArrowDownRight size={36} /><span>AI reads this too</span></div>
       </div></div>
       <div className={styles.pageControls}><button><Plus size={15} /> Add page</button><span>Page 1 of 1</span><div className={styles.zoom}><span>-</span><div><i /></div><span>72%</span><span>+</span></div></div>
     </div>
     <aside className={styles.inspector}>
       <div className={styles.inspectorHeader}><div><span className={styles.eyebrow}>INSPECTOR</span><h3>{selected ? selected.kind === 'text' ? 'Text layer' : 'Shape layer' : 'Page'}</h3></div><Layers3 size={18} /></div>
-      {selected ? <><label>Content</label>{selected.kind === 'text' ? <textarea className={styles.field} value={selected.text || ''} onChange={(event) => updateSelected({ text: event.target.value })} /> : <div className={styles.colorField}><span style={{ background: selected.color }} /><input value={selected.color || ''} onChange={(event) => updateSelected({ color: event.target.value })} /></div>}<label>Position</label><div className={styles.twoFields}><input className={styles.field} value={Math.round(selected.x)} onChange={(event) => updateSelected({ x: Number(event.target.value) || 0 })} /><input className={styles.field} value={Math.round(selected.y)} onChange={(event) => updateSelected({ y: Number(event.target.value) || 0 })} /></div><label>Quick style</label><div className={styles.styleRow}><button onClick={() => updateSelected({ color: '#17171b' })}><span style={{ background: '#17171b' }} /></button><button onClick={() => updateSelected({ color: '#7138e8' })}><span style={{ background: '#7138e8' }} /></button><button onClick={() => updateSelected({ color: '#ee4e9b' })}><span style={{ background: '#ee4e9b' }} /></button><button onClick={() => updateSelected({ color: '#18b8bd' })}><span style={{ background: '#18b8bd' }} /></button></div></> : <div className={styles.emptyInspector}><Sparkles size={22} /><p>Select an element to edit it manually, or ask the Copilot to make a change.</p></div>}
+      {selected ? <><label>Content</label>{selected.kind === 'text' ? <textarea className={styles.field} value={selected.text || ''} onChange={(event) => updateSelected({ text: event.target.value })} /> : selected.kind === 'image' ? <div className={styles.imageNote}>Generated image layer. Resize or reposition it on the canvas.</div> : <div className={styles.colorField}><span style={{ background: selected.color }} /><input value={selected.color || ''} onChange={(event) => updateSelected({ color: event.target.value })} /></div>}<label>Position</label><div className={styles.twoFields}><input className={styles.field} value={Math.round(selected.x)} onChange={(event) => updateSelected({ x: Number(event.target.value) || 0 })} /><input className={styles.field} value={Math.round(selected.y)} onChange={(event) => updateSelected({ y: Number(event.target.value) || 0 })} /></div><label>Quick style</label><div className={styles.styleRow}><button onClick={() => updateSelected({ color: '#17171b' })}><span style={{ background: '#17171b' }} /></button><button onClick={() => updateSelected({ color: '#7138e8' })}><span style={{ background: '#7138e8' }} /></button><button onClick={() => updateSelected({ color: '#ee4e9b' })}><span style={{ background: '#ee4e9b' }} /></button><button onClick={() => updateSelected({ color: '#18b8bd' })}><span style={{ background: '#18b8bd' }} /></button></div></> : <div className={styles.emptyInspector}><Sparkles size={22} /><p>Select an element to edit it manually, or ask the Copilot to make a change.</p></div>}
     </aside>
   </div>;
 }
