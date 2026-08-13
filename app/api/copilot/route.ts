@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
+import { envConfigured } from '@/lib/env';
 
 const systemInstruction = [
   'You are the Resit Studio Copilot.',
@@ -11,7 +12,7 @@ const systemInstruction = [
 
 export async function POST(request: Request) {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
+  if (!envConfigured(apiKey)) {
     return Response.json(
       { error: 'Gemini is not configured. Add GEMINI_API_KEY to the server environment.' },
       { status: 503 },

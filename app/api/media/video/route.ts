@@ -1,8 +1,9 @@
 import { GoogleGenAI } from '@google/genai';
+import { envConfigured } from '@/lib/env';
 
 export async function POST(request: Request) {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
+  if (!envConfigured(apiKey)) {
     return Response.json(
       { error: 'Veo is not configured. Add GEMINI_API_KEY to the server environment.' },
       { status: 503 },
