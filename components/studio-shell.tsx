@@ -30,6 +30,7 @@ import { applyEditorActions } from '@/lib/editor-actions';
 import { firebaseAuth, googleProvider } from '@/lib/firebase';
 import { onAuthStateChanged, signInWithPopup, signOut, type User } from 'firebase/auth';
 import { CalendarWorkspace } from './calendar-workspace';
+import { VideoWorkspace } from './video-workspace';
 import styles from './studio-shell.module.css';
 
 const initialNodes: DesignNode[] = [
@@ -224,8 +225,7 @@ export function StudioShell() {
 
         {mode === 'graphic' || mode === 'agent' ? <GraphicWorkspace nodes={nodes} selectedId={selectedId} setSelectedId={setSelectedId} selected={selected} updateSelected={updateSelected} addText={addText} addShape={addShape} imagePrompt={imagePrompt} setImagePrompt={setImagePrompt} generateImage={generateImage} imageBusy={imageBusy} addImageFromFile={addImageFromFile} /> : null}
         {mode === 'video' ? <VideoWorkspace /> : null}
-        {mode === 'calendar' ? <CalendarWorkspace /> : null}
-        {mode === 'assets' ? <AssetsWorkspace nodes={nodes} /> : null}
+        {mode === 'calendar' ? <CalendarWorkspace /> : null}        {mode === 'assets' ? <AssetsWorkspace nodes={nodes} /> : null}
 
         {copilotOpen ? <aside className={styles.copilot}>
           <div className={styles.copilotHeader}><div><Sparkles size={17} /><strong>Studio AI Copilot</strong><span>Gemini Flash</span></div><button aria-label="Close copilot" onClick={() => setCopilotOpen(false)}><X size={18} /></button></div>
@@ -274,12 +274,6 @@ function GraphicWorkspace({ nodes, selectedId, setSelectedId, selected, updateSe
     </aside>
   </div>;
 }
-
-function VideoWorkspace() {
-  return <div className={styles.videoArea}><div className={styles.videoTop}><div><span className={styles.eyebrow}>VIDEO STUDIO</span><h2>Product launch / vertical cut</h2></div><button className={styles.toolbarPrimary}><Sparkles size={16} /> Generate with Veo</button></div><div className={styles.videoPreview}><div className={styles.videoFrame}><div className={styles.videoOrb} /><strong>YOUR<br />NEXT<br />FRAME</strong><small>00:04.8</small></div><button className={styles.playButton}><Play size={22} fill="currentColor" /></button></div><div className={styles.timeline}><div className={styles.ruler}><span>00:00</span><span>00:05</span><span>00:10</span><span>00:15</span><span>00:20</span></div><TimelineRow label="Elements"><div className={`${styles.clip} ${styles.clipPurple}`}>Headline reveal</div><div className={`${styles.clip} ${styles.clipPink}`}>Product shot</div></TimelineRow><TimelineRow label="Media"><div className={`${styles.clip} ${styles.clipTeal}`}>Generated video / Veo</div><div className={`${styles.clip} ${styles.clipBlue}`}>Logo outro</div></TimelineRow><TimelineRow label="Audio"><div className={`${styles.clip} ${styles.clipAudio}`}>Voiceover and captions</div></TimelineRow></div></div>;
-}
-
-function TimelineRow({ label, children }: { label: string; children: React.ReactNode }) { return <div className={styles.timelineRow}><span>{label}</span><div className={styles.track}>{children}</div></div>; }
 
 function AssetsWorkspace({ nodes }: { nodes: DesignNode[] }) {
   const images = nodes.filter((node) => node.kind === 'image');
