@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ArrowDownRight,
   CalendarDays,
@@ -26,6 +26,7 @@ import {
   X,
 } from 'lucide-react';
 import type { DesignNode, StudioMode } from '@/lib/types';
+import { applyEditorActions } from '@/lib/editor-actions';
 import styles from './studio-shell.module.css';
 
 const initialNodes: DesignNode[] = [
@@ -49,11 +50,30 @@ export function StudioShell() {
   const [copilotOpen, setCopilotOpen] = useState(true);
   const [prompt, setPrompt] = useState('');
   const [copilotBusy, setCopilotBusy] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const [messages, setMessages] = useState([
     { role: 'assistant', text: 'I can work with the selected object, the whole page, or a rough annotation. Try asking me to change the layout.' },
   ]);
 
   const selected = nodes.find((node) => node.id === selectedId);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem('resit:untitled-campaign:nodes');
+      if (stored) {
+        const parsed = JSON.parse(stored) as DesignNode[];
+        if (Array.isArray(parsed)) setNodes(parsed);
+      }
+    } catch {
+      // Demo mode should remain usable when local storage is unavailable.
+    } finally {
+      setHydrated(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (hydrated) window.localStorage.setItem('resit:untitled-campaign:nodes', JSON.stringify(nodes));
+  }, [hydrated, nodes]);
 
   function addText() {
     const id = `text-${Date.now()}`;
@@ -85,7 +105,13 @@ export function StudioShell() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ prompt: text, selected, nodes }),
       });
-      const result = await response.json() as { text?: string; error?: string };
+      const result = await response.json() as { text?: string; error?: string; actions?: unknown[] };
+      const changes = applyEditorActions(nodes, result.actions || []);
+      if (changes.applied) {
+        setNodes(changes.nodes);
+        const newSelection = changes.nodes.find((node) => !nodes.some((previous) => previous.id === node.id));
+        if (newSelection) setSelectedId(newSelection.id);
+      }
       setMessages((current) => [...current, {
         role: 'assistant',
         text: result.text || result.error || 'The Copilot could not complete that request.',

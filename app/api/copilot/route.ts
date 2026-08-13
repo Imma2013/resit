@@ -4,7 +4,9 @@ const systemInstruction = [
   'You are the Resit Studio Copilot.',
   'Help the user edit a visual design without taking control away from manual editing.',
   'Use the supplied document context to give concise, actionable design advice.',
-  'Do not claim that an edit was committed. Describe proposed changes until the editor mutation tools are connected.',
+  'Return only JSON with this shape: {"reply":"short explanation","actions":[]}.',
+  'Allowed actions: set_text(nodeId,text), set_color(nodeId,color), move(nodeId,x,y), resize(nodeId,width,height), add_text(text,x,y,color), add_shape(x,y,width,height,color).',
+  'Only use exact node IDs from the supplied document. Use valid six-digit hex colors and finite canvas coordinates.',
 ].join(' ');
 
 export async function POST(request: Request) {
@@ -32,8 +34,17 @@ export async function POST(request: Request) {
       selected: body.selected ?? null,
       document: body.nodes ?? [],
     }),
-    config: { systemInstruction },
+    config: { systemInstruction, responseMimeType: 'application/json' },
   });
 
-  return Response.json({ text: response.text || 'Gemini returned no text.' });
+  const raw = response.text || '{}';
+  try {
+    const result = JSON.parse(raw) as { reply?: unknown; actions?: unknown };
+    return Response.json({
+      text: typeof result.reply === 'string' ? result.reply : 'I prepared an edit for the current design.',
+      actions: Array.isArray(result.actions) ? result.actions : [],
+    });
+  } catch {
+    return Response.json({ text: raw, actions: [] });
+  }
 }
