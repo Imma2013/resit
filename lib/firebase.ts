@@ -1,4 +1,4 @@
-import { getApp, getApps, initializeApp } from 'firebase/app';
+import { getApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 
 const config = {
@@ -10,5 +10,9 @@ const config = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-export const firebaseApp = getApps().length ? getApp() : initializeApp(config);
-export const firebaseAuth = typeof window === 'undefined' ? null : getAuth(firebaseApp);
+const hasClientConfig = Object.values(config).every((value) => Boolean(value));
+
+export const firebaseApp: FirebaseApp | null = hasClientConfig
+  ? (getApps().length ? getApp() : initializeApp(config))
+  : null;
+export const firebaseAuth = firebaseApp && typeof window !== 'undefined' ? getAuth(firebaseApp) : null;
