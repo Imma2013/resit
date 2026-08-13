@@ -28,7 +28,36 @@ export function VideoWorkspace() {
   ]);
   const [playhead, setPlayhead] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [videoPrompt, setVideoPrompt] = useState('');
+  const [videoBusy, setVideoBusy] = useState(false);
+  const [videoUri, setVideoUri] = useState<string | null>(null);
+  const [videoError, setVideoError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  async function generateVideo() {
+    const text = videoPrompt.trim();
+    if (!text || videoBusy) return;
+    setVideoBusy(true);
+    setVideoError(null);
+    try {
+      const response = await fetch('/api/media/video', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ prompt: text, duration: 6 }),
+      });
+      const result = await response.json() as { uri?: string; error?: string };
+      if (result.uri) {
+        setVideoUri(result.uri);
+        setClips((current) => [...current, { id: `clip-video-${Date.now()}`, label: 'Veo generated', kind: 'media', start: 0, duration: 6 }]);
+      } else {
+        setVideoError(result.error || 'Veo returned no video.');
+      }
+    } catch {
+      setVideoError('Veo generation is unavailable. Check the server configuration.');
+    } finally {
+      setVideoBusy(false);
+    }
+  }
 
   useEffect(() => {
     if (playing) {
@@ -57,8 +86,14 @@ export function VideoWorkspace() {
     <div className={styles.videoArea}>
       <div className={styles.videoTop}>
         <div><span className={styles.eyebrow}>VIDEO STUDIO</span><h2>Product launch / vertical cut</h2></div>
-        <button className={styles.toolbarPrimary}><Sparkles size={16} /> Generate with Veo</button>
+        <div className={styles.veoBox}>
+          <input className={styles.field} value={videoPrompt} onChange={(event) => setVideoPrompt(event.target.value)} placeholder="Describe a clip for Veo..." disabled={videoBusy} />
+          <button className={styles.toolbarPrimary} onClick={() => void generateVideo()} disabled={videoBusy}>{videoBusy ? 'Generating...' : <><Sparkles size={16} /> Generate with Veo</>}</button>
+        </div>
       </div>
+
+      {videoError ? <div className={styles.veoError}>{videoError}</div> : null}
+      {videoUri ? <div className={styles.veoResult}><video src={videoUri} controls playsInline /><span>Generated clip added to the Media track.</span></div> : null}
 
       <div className={styles.videoPreview}>
         <div className={styles.videoFrame}>

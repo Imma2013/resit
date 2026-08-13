@@ -149,6 +149,37 @@ export function StudioShell() {
     setMode('graphic');
   }
 
+  async function exportDesign() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 560 * 2;
+    canvas.height = 560 * 2;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.scale(2, 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, 560, 560);
+    for (const node of nodes) {
+      if (node.kind === 'shape') {
+        ctx.fillStyle = node.color || '#7138e8';
+        ctx.fillRect(node.x, node.y, node.width, node.height);
+      } else if (node.kind === 'image' && node.src) {
+        const image = new Image();
+        image.src = node.src;
+        await new Promise((resolve) => { image.onload = resolve; image.onerror = resolve; });
+        ctx.drawImage(image, node.x, node.y, node.width, node.height);
+      } else if (node.kind === 'text' && node.text) {
+        ctx.fillStyle = node.color || '#17171b';
+        ctx.font = '900 30px Arial';
+        node.text.split('\n').forEach((line, index) => ctx.fillText(line, node.x, node.y + 32 * (index + 1)));
+      }
+    }
+    const url = canvas.toDataURL('image/png');
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'resit-design.png';
+    anchor.click();
+  }
+
   async function sendPrompt() {
     const text = prompt.trim();
     if (!text || copilotBusy) return;
@@ -208,7 +239,7 @@ export function StudioShell() {
       <div className={styles.workspaceBar}>
         <div className={styles.workspaceTitle}><FolderOpen size={17} /> Untitled campaign <ChevronDown size={15} /></div>
         <div className={styles.workspaceMeta}><span className={styles.saved}><Check size={13} /> Saved locally</span><span>Instagram Post 1:1</span></div>
-        <div className={styles.workspaceActions}><button><Download size={16} /> Export</button><button className={styles.shareButton}>Share</button></div>
+        <div className={styles.workspaceActions}><button onClick={() => void exportDesign()}><Download size={16} /> Export</button><button className={styles.shareButton}>Share</button></div>
       </div>
 
       <section className={`${styles.body} ${copilotOpen ? '' : styles.bodyWide}`}>
