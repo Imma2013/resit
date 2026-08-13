@@ -37,6 +37,19 @@ export function CalendarWorkspace() {
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [connectError, setConnectError] = useState<string | null>(null);
+  const [connectBanner, setConnectBanner] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get('connect');
+    const provider = params.get('provider');
+    if (status && provider) {
+      setConnectBanner(status === 'success'
+        ? `${provider} connected. Refresh tokens will persist once a Convex deployment is configured.`
+        : `Could not connect ${provider}. Check the provider credentials in the server environment.`);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   async function connect(providerId: string) {
     setConnectError(null);
@@ -130,6 +143,7 @@ export function CalendarWorkspace() {
         ))}
       </div>
       {connectError ? <div className={styles.veoError}>{connectError}</div> : null}
+      {connectBanner ? <div className={styles.connectBanner}>{connectBanner}</div> : null}
       <div className={styles.calendarGrid}>
         {days.map((day, index) => (
           <div className={styles.dayColumn} key={day}>
