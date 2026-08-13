@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { CalendarDays, ChevronDown, Image as ImageIcon, Plus, Trash2, X } from 'lucide-react';
+import { socialProviders } from '@/lib/social';
 import styles from './studio-shell.module.css';
 
 type PostStatus = 'draft' | 'scheduled' | 'published' | 'failed';
@@ -35,6 +36,22 @@ export function CalendarWorkspace() {
   const [hydrated, setHydrated] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [connectError, setConnectError] = useState<string | null>(null);
+
+  async function connect(providerId: string) {
+    setConnectError(null);
+    try {
+      const response = await fetch(`/api/social/${providerId}/connect`);
+      const result = await response.json() as { url?: string; error?: string };
+      if (result.url) {
+        window.open(result.url, '_blank', 'noopener');
+      } else {
+        setConnectError(result.error || 'Could not start the connection.');
+      }
+    } catch {
+      setConnectError('The connection service is unavailable.');
+    }
+  }
 
   useEffect(() => {
     try {
@@ -106,6 +123,13 @@ export function CalendarWorkspace() {
         <button>Scheduled</button>
         <button>Published</button>
       </div>
+      <div className={styles.connectRow}>
+        <span>Connected channels</span>
+        {socialProviders.map((provider) => (
+          <button key={provider.id} onClick={() => void connect(provider.id)}>{provider.label}</button>
+        ))}
+      </div>
+      {connectError ? <div className={styles.veoError}>{connectError}</div> : null}
       <div className={styles.calendarGrid}>
         {days.map((day, index) => (
           <div className={styles.dayColumn} key={day}>
